@@ -1,0 +1,7 @@
+Prep dataset
+Yolo Detection
+VLM reasoning
+YOLO + VLM loop
+create temporal / synthetic sequence layer
+
+Run YOLO every frame. Run VLM only when buffer flags suspicious state (event-driven).
