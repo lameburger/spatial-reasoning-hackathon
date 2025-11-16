@@ -25,10 +25,7 @@ build/
 *.swo
 *~
 
-# YOLO training outputs
-yolo_dataset/
-runs/
-evaluation_results/
+# YOLO model files (large, download separately)
 *.pt
 *.onnx
 *.torchscript
@@ -49,3 +46,16 @@ Thumbs.db
 # Test files
 test_frame.jpg
 *.mp4
+
+# Detection results
+hazard_detection_results/
+detection_results/
+runs/
+evaluation_results/
+
+# Dataset directories
+yolo_dataset/
+vlm_data/
+
+# Visualizations
+visualizations/
