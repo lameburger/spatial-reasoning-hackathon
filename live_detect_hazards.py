@@ -162,8 +162,13 @@ def live_detection(
     source: int = 0,  # 0 for webcam
     conf_threshold: float = 0.25,
     skip_frames: int = 1,  # Process every nth frame (1 = every frame, 2 = every other frame)
+    exclude_classes: list = None,  # Classes to exclude from display
 ):
     """Live hazard detection from webcam or video stream."""
+
+    # Default excluded classes
+    if exclude_classes is None:
+        exclude_classes = []
     
     # Auto-detect model
     if model_path is None:
@@ -186,6 +191,8 @@ def live_detection(
     print(f"Model: {model_path}")
     print(f"Source: {'Webcam' if source == 0 else source}")
     print(f"Processing: Every {skip_frames} frame(s)")
+    if exclude_classes:
+        print(f"Excluded classes: {', '.join(exclude_classes)}")
     print("Press 'q' to quit")
     print()
     
@@ -216,6 +223,7 @@ def live_detection(
 
             # Extract and map detections
             detections = []
+            filtered_boxes_indices = []
             if result.boxes is not None:
                 boxes = result.boxes
                 for i in range(len(boxes)):
@@ -223,6 +231,10 @@ def live_detection(
                     conf = float(boxes.conf[i].cpu().numpy())
                     class_id = int(boxes.cls[i].cpu().numpy())
                     detected_class = model_names[class_id]
+
+                    # Check if class should be excluded from display
+                    if detected_class.lower() not in [c.lower() for c in exclude_classes]:
+                        filtered_boxes_indices.append(i)
 
                     hazard_class = map_class_name(detected_class, model_names)
                     if hazard_class:
@@ -236,8 +248,36 @@ def live_detection(
             # Detect hazards
             hazards = detect_hazards(detections)
 
-            # Draw YOLO annotations with proper colors
-            annotated_frame = result.plot()
+            # Draw annotations manually for non-excluded classes
+            annotated_frame = frame.copy()
+            if result.boxes is not None and len(filtered_boxes_indices) > 0:
+                boxes = result.boxes
+                # Generate colors for each class
+                import random
+                random.seed(42)
+                colors = {}
+                for class_id in model_names.keys():
+                    colors[class_id] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+                for i in filtered_boxes_indices:
+                    bbox = boxes.xyxy[i].cpu().numpy()
+                    conf = float(boxes.conf[i].cpu().numpy())
+                    class_id = int(boxes.cls[i].cpu().numpy())
+                    class_name = model_names[class_id]
+
+                    x1, y1, x2, y2 = map(int, bbox)
+                    color = colors[class_id]
+
+                    # Draw box
+                    cv2.rectangle(annotated_frame, (x1, y1), (x2, y2), color, 2)
+
+                    # Draw label
+                    label = f"{class_name} {conf:.2f}"
+                    (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)
+                    cv2.rectangle(annotated_frame, (x1, y1 - label_h - 10), (x1 + label_w, y1), color, -1)
+                    cv2.putText(annotated_frame, label, (x1, y1 - 5),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
             last_annotated_base = annotated_frame.copy()
 
             # Cache results
@@ -280,20 +320,28 @@ def main():
     parser = argparse.ArgumentParser(description="Live Construction Hazard Detection")
     parser.add_argument("--model", type=str, default=None,
                        help="YOLO model path (auto-detects if not provided)")
-    parser.add_argument("--source", type=int, default=0,
+    parser.add_argument("--source", default=0,
                        help="Video source (0 for webcam, or path to video file)")
     parser.add_argument("--conf", type=float, default=0.25,
                        help="Confidence threshold")
     parser.add_argument("--skip-frames", type=int, default=2,
                        help="Process every nth frame (1=all frames, 2=every other frame)")
+    parser.add_argument("--exclude-classes", type=str, nargs='+', default=['NO-Mask', 'Person', 'Mask'],
+                       help="Classes to exclude from bounding box display")
 
     args = parser.parse_args()
 
+    # Handle source - if it's a digit string, convert to int (for webcam)
+    source = args.source
+    if isinstance(source, str) and source.isdigit():
+        source = int(source)
+
     live_detection(
         model_path=args.model,
-        source=args.source,
+        source=source,
         conf_threshold=args.conf,
-        skip_frames=args.skip_frames
+        skip_frames=args.skip_frames,
+        exclude_classes=args.exclude_classes
     )
 
 
