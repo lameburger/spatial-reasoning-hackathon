@@ -1,0 +1,5 @@
+{
+  "optimal_batch_size": 18,
+  "gpu_name": "NVIDIA GeForce RTX 5070",
+  "vram_gb": 11.94000244140625
+}

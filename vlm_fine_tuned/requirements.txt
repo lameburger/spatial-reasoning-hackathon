@@ -8,4 +8,5 @@ pillow>=10.0.0
 bitsandbytes>=0.43.0
 scipy
 num2words>=0.5.0
+opencv-python>=4.8.0
 
