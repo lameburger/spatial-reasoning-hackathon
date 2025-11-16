@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Mesh & Hazard Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #000;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 280px;
+            max-width: 350px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        
+        #run-scan-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 16px;
+            background: rgba(14, 165, 233, 0.2);
+            border: 1px solid rgba(14, 165, 233, 0.5);
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 300;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        #run-scan-btn:hover:not(:disabled) {
+            background: rgba(14, 165, 233, 0.3);
+            border-color: rgba(14, 165, 233, 0.8);
+        }
+        
+        #run-scan-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #scan-status {
+            margin-top: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            font-weight: 300;
+        }
+
+        #info-panel h2 {
+            font-size: 18px;
+            margin-bottom: 14px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            padding-bottom: 10px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 300;
+        }
+
+        .stat-value {
+            color: #fff;
+            font-weight: 400;
+        }
+
+        #hazard-details {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            max-width: 450px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #hazard-details.visible {
+            display: block;
+        }
+
+        #hazard-details h3 {
+            color: #fff;
+            margin-bottom: 16px;
+            font-size: 18px;
+            border-bottom: 1px solid rgba(239, 68, 68, 0.3);
+            padding-bottom: 10px;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-item {
+            margin: 14px 0;
+            font-size: 14px;
+        }
+
+        .detail-label {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 6px;
+            font-weight: 300;
+        }
+
+        .detail-value {
+            color: #fff;
+            font-size: 14px;
+            font-weight: 300;
+        }
+
+        .vlm-response {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 8px;
+            border-left: 2px solid rgba(14, 165, 233, 0.5);
+            margin-top: 12px;
+            line-height: 1.7;
+            font-size: 13px;
+            color: #fff;
+            font-weight: 300;
+        }
+
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #controls h3 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #fff;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+            min-width: 100px;
+            font-weight: 300;
+        }
+
+        input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 18px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #legend h3 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #fff;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0;
+            font-size: 13px;
+            color: #fff;
+            font-weight: 300;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 18px;
+            color: #fff;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 28px;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="canvas-container"></div>
+        
+        <div id="loading">Loading mesh and hazards...</div>
+
+        <div id="info-panel">
+            <h2>Scene Info</h2>
+            <div class="stat-row">
+                <span class="stat-label">Mesh Vertices:</span>
+                <span class="stat-value" id="vertex-count">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Total Hazards:</span>
+                <span class="stat-value" id="hazard-count">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">VLM Analyses:</span>
+                <span class="stat-value" id="vlm-count">-</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">Frames Processed:</span>
+                <span class="stat-value" id="frame-count">-</span>
+            </div>
+            <button id="run-scan-btn" onclick="runScan()">Run New Scan</button>
+            <div id="scan-status"></div>
+        </div>
+
+        <div id="hazard-details">
+            <button class="close-btn" onclick="closeHazardDetails()">&times;</button>
+            <h3>Hazard Details</h3>
+            <div id="hazard-content"></div>
+        </div>
+
+        <div id="controls">
+            <h3>Display Options</h3>
+            <div class="control-row">
+                <label>Show Mesh</label>
+                <input type="checkbox" id="toggle-mesh" checked>
+            </div>
+            <div class="control-row">
+                <label>Show Hazards</label>
+                <input type="checkbox" id="toggle-hazards" checked>
+            </div>
+            <div class="control-row">
+                <label>Wireframe</label>
+                <input type="checkbox" id="toggle-wireframe">
+            </div>
+            <div class="control-row">
+                <label>VLM Only</label>
+                <input type="checkbox" id="toggle-vlm-only">
+            </div>
+        </div>
+
+        <div id="legend">
+            <h3>Hazard Legend</h3>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ef4444;"></div>
+                <span>No Hardhat</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f97316;"></div>
+                <span>No Safety Vest</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #a855f7;"></div>
+                <span>Other</span>
+            </div>
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #0ea5e9; border: 2px solid #fff;"></div>
+                    <span>Has VLM Analysis</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+        let scene, camera, renderer, controls;
+        let meshObject, hazardGroup, hazardSpheres = [];
+        let hazardsData = null;
+        let raycaster, mouse;
+        let showVLMOnly = false;
+
+        // Hazard colors
+        const HAZARD_COLORS = {
+            'no_hardhat': 0xef4444,
+            'no_safety_vest': 0xf97316,
+            'default': 0xa855f7
+        };
+        
+        const VLM_HIGHLIGHT_COLOR = 0x0ea5e9; // Bright blue for VLM-paired hazards
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                1000
+            );
+            camera.position.set(5, 5, 5);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            scene.add(directionalLight);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            directionalLight2.position.set(-10, 5, -5);
+            scene.add(directionalLight2);
+
+            // Raycaster for click detection
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            // Event listeners
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('click', onMouseClick);
+            
+            // Control listeners
+            document.getElementById('toggle-mesh').addEventListener('change', toggleMesh);
+            document.getElementById('toggle-hazards').addEventListener('change', toggleHazards);
+            document.getElementById('toggle-wireframe').addEventListener('change', toggleWireframe);
+            document.getElementById('toggle-vlm-only').addEventListener('change', toggleVLMOnly);
+
+            // Load data
+            loadData();
+
+            // Animation loop
+            animate();
+        }
+
+        async function loadData() {
+            try {
+                // Load hazards JSON
+                const hazardsResponse = await fetch('hazards_detected.json');
+                
+                if (!hazardsResponse.ok) {
+                    throw new Error(`Hazards file not found (${hazardsResponse.status})`);
+                }
+                
+                hazardsData = await hazardsResponse.json();
+                
+                updateStats();
+
+                // Load OBJ mesh
+                const objLoader = new OBJLoader();
+                objLoader.load(
+                    'mesh_gen.obj',
+                    (obj) => {
+                        meshObject = obj;
+                        
+                        // Apply material to mesh
+                        obj.traverse((child) => {
+                            if (child.isMesh) {
+                                child.material = new THREE.MeshStandardMaterial({
+                                    color: 0x666666,
+                                    metalness: 0.2,
+                                    roughness: 0.8,
+                                    vertexColors: child.geometry.attributes.color ? true : false
+                                });
+                            }
+                        });
+                        
+                        scene.add(obj);
+                        
+                        // Count vertices
+                        let vertexCount = 0;
+                        obj.traverse((child) => {
+                            if (child.isMesh && child.geometry) {
+                                vertexCount += child.geometry.attributes.position.count;
+                            }
+                        });
+                        document.getElementById('vertex-count').textContent = vertexCount.toLocaleString();
+                        
+                        // Center camera on mesh
+                        const box = new THREE.Box3().setFromObject(obj);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const fov = camera.fov * (Math.PI / 180);
+                        let cameraZ = Math.abs(maxDim / Math.tan(fov / 2)) * 1.5;
+                        
+                        camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ);
+                        camera.lookAt(center);
+                        controls.target.copy(center);
+                        
+                        document.getElementById('loading').style.display = 'none';
+                    },
+                    (xhr) => {
+                        const percent = (xhr.loaded / xhr.total * 100).toFixed(0);
+                        document.getElementById('loading').textContent = `Loading mesh: ${percent}%`;
+                    },
+                    (error) => {
+                        console.error('Error loading mesh:', error);
+                        document.getElementById('loading').textContent = 'Error loading mesh';
+                    }
+                );
+
+                // Create hazard points
+                createHazardPoints();
+
+            } catch (error) {
+                console.error('Error loading data:', error);
+                const loadingEl = document.getElementById('loading');
+                loadingEl.innerHTML = `
+                    <div style="text-align: center; max-width: 500px;">
+                        <div style="font-size: 24px; margin-bottom: 16px;">⚠️</div>
+                        <div style="font-size: 16px; margin-bottom: 12px;">Error Loading Data</div>
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.6); line-height: 1.6;">
+                            ${error.message.includes('not found') ? 
+                                'Make sure mesh_gen.obj and hazards_detected.json exist in the same directory. Run spatial.py first to generate these files.' : 
+                                error.message}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function hasVLMAnalysis(hazard) {
+            // Check if this hazard has a VLM analysis paired with it
+            if (!hazardsData.vlm_analyses || hazardsData.vlm_analyses.length === 0) {
+                return false;
+            }
+            
+            return hazardsData.vlm_analyses.some(vlm => 
+                Math.abs(vlm.timestamp - hazard.timestamp) < 2.5 &&
+                vlm.hazards_detected.includes(hazard.class)
+            );
+        }
+
+        function createHazardPoints() {
+            hazardGroup = new THREE.Group();
+            
+            hazardsData.hazards.forEach((hazard, index) => {
+                const position = hazard.world_position || hazard.camera_position;
+                if (!position) return;
+
+                const hasVLM = hasVLMAnalysis(hazard);
+                
+                // Use hazard type color
+                const baseColor = HAZARD_COLORS[hazard.class] || HAZARD_COLORS.default;
+                
+                // Create sphere for hazard point
+                const geometry = new THREE.SphereGeometry(0.05, 16, 16);
+                const material = new THREE.MeshStandardMaterial({
+                    color: baseColor,
+                    emissive: baseColor,
+                    emissiveIntensity: 0.3,
+                    metalness: 0.2,
+                    roughness: 0.6
+                });
+                
+                const sphere = new THREE.Mesh(geometry, material);
+                sphere.position.set(position[0], position[1], position[2]);
+                sphere.userData = { hazardIndex: index, hazard: hazard, hasVLM: hasVLM };
+                
+                hazardGroup.add(sphere);
+                hazardSpheres.push(sphere);
+                
+                // Add subtle outline for VLM-paired hazards
+                if (hasVLM) {
+                    const outlineGeometry = new THREE.SphereGeometry(0.065, 16, 16);
+                    const outlineMaterial = new THREE.MeshBasicMaterial({
+                        color: VLM_HIGHLIGHT_COLOR,
+                        transparent: true,
+                        opacity: 0.4,
+                        side: THREE.BackSide
+                    });
+                    const outline = new THREE.Mesh(outlineGeometry, outlineMaterial);
+                    outline.position.copy(sphere.position);
+                    outline.userData = { isVLMOutline: true, hazardIndex: index };
+                    hazardGroup.add(outline);
+                    hazardSpheres.push(outline);
+                }
+            });
+
+            scene.add(hazardGroup);
+            
+            // Update stats to show VLM-paired count
+            updateVLMPairedCount();
+        }
+        
+        function updateVLMPairedCount() {
+            // Count only actual hazard spheres, not outlines
+            const vlmPairedCount = hazardSpheres.filter(s => s.userData.hasVLM && !s.userData.isVLMOutline).length;
+            const statRow = document.querySelector('#info-panel');
+            
+            // Check if we already added this stat
+            if (!document.getElementById('vlm-paired-count')) {
+                const newStatRow = document.createElement('div');
+                newStatRow.className = 'stat-row';
+                newStatRow.innerHTML = `
+                    <span class="stat-label">VLM-Paired Hazards:</span>
+                    <span class="stat-value" id="vlm-paired-count">${vlmPairedCount}</span>
+                `;
+                statRow.appendChild(newStatRow);
+            } else {
+                document.getElementById('vlm-paired-count').textContent = vlmPairedCount;
+            }
+        }
+
+        function updateStats() {
+            if (hazardsData) {
+                document.getElementById('hazard-count').textContent = hazardsData.total_hazards || 0;
+                document.getElementById('vlm-count').textContent = (hazardsData.vlm_analyses || []).length;
+                document.getElementById('frame-count').textContent = hazardsData.total_frames || 0;
+            } else {
+                document.getElementById('hazard-count').textContent = '-';
+                document.getElementById('vlm-count').textContent = '-';
+                document.getElementById('frame-count').textContent = '-';
+            }
+        }
+
+        function onMouseClick(event) {
+            // Calculate mouse position in normalized device coordinates
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            // Raycast
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(hazardSpheres);
+
+            if (intersects.length > 0) {
+                const clickedObj = intersects[0].object;
+                
+                // If clicked on an outline, find the corresponding hazard
+                if (clickedObj.userData.isVLMOutline) {
+                    const hazardIndex = clickedObj.userData.hazardIndex;
+                    const hazard = hazardsData.hazards[hazardIndex];
+                    showHazardDetails(hazard, hazardIndex);
+                } else {
+                    const hazard = clickedObj.userData.hazard;
+                    const hazardIndex = clickedObj.userData.hazardIndex;
+                    showHazardDetails(hazard, hazardIndex);
+                }
+            }
+        }
+
+        function showHazardDetails(hazard, hazardIndex) {
+            const panel = document.getElementById('hazard-details');
+            const content = document.getElementById('hazard-content');
+            
+            const position = hazard.world_position || hazard.camera_position;
+            const posType = hazard.world_position ? 'World' : 'Camera';
+            
+            // Find related VLM analysis
+            let vlmAnalysis = null;
+            if (hazardsData.vlm_analyses) {
+                // Find VLM analysis closest in time
+                vlmAnalysis = hazardsData.vlm_analyses.find(vlm => 
+                    Math.abs(vlm.timestamp - hazard.timestamp) < 2.5 &&
+                    vlm.hazards_detected.includes(hazard.class)
+                );
+            }
+            
+            let html = `
+                ${vlmAnalysis ? '<div style="background: rgba(14, 165, 233, 0.2); padding: 8px 12px; border-radius: 6px; margin-bottom: 16px; text-align: center; border: 1px solid rgba(14, 165, 233, 0.4);"><span style="color: #0ea5e9; font-weight: 400;">✓ VLM Analysis Available</span></div>' : ''}
+                <div class="detail-item">
+                    <div class="detail-label">Hazard Type</div>
+                    <div class="detail-value">${hazard.class.replace(/_/g, ' ').toUpperCase()}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Confidence</div>
+                    <div class="detail-value">${(hazard.confidence * 100).toFixed(1)}%</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">${posType} Position (X, Y, Z)</div>
+                    <div class="detail-value">
+                        ${position[0].toFixed(3)}, ${position[1].toFixed(3)}, ${position[2].toFixed(3)}
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Frame</div>
+                    <div class="detail-value">${hazard.frame}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Timestamp</div>
+                    <div class="detail-value">${new Date(hazard.timestamp * 1000).toLocaleString()}</div>
+                </div>
+            `;
+            
+            if (vlmAnalysis) {
+                html += `
+                    <div class="detail-item">
+                        <div class="detail-label">VLM Safety Analysis</div>
+                        <div class="vlm-response">${vlmAnalysis.response}</div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="detail-item">
+                        <div class="detail-label">VLM Safety Analysis</div>
+                        <div class="detail-value" style="color: #94a3b8;">No VLM analysis available for this detection</div>
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = html;
+            panel.classList.add('visible');
+        }
+
+        window.closeHazardDetails = function() {
+            document.getElementById('hazard-details').classList.remove('visible');
+        }
+        
+        window.runScan = async function() {
+            const btn = document.getElementById('run-scan-btn');
+            const status = document.getElementById('scan-status');
+            
+            btn.disabled = true;
+            status.textContent = 'Launching spatial.py...';
+            
+            try {
+                const response = await fetch('/run_scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    status.textContent = 'spatial.py opened - press Space to start scan';
+                    
+                    // Re-enable button after a delay
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        status.textContent = 'Refresh page when scan complete';
+                    }, 3000);
+                } else {
+                    status.textContent = 'Error: ' + data.error;
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                status.textContent = 'Error: ' + error.message;
+                btn.disabled = false;
+            }
+        }
+
+        function toggleMesh(e) {
+            if (meshObject) {
+                meshObject.visible = e.target.checked;
+            }
+        }
+
+        function toggleHazards(e) {
+            if (hazardGroup) {
+                hazardGroup.visible = e.target.checked;
+            }
+        }
+
+        function toggleWireframe(e) {
+            if (meshObject) {
+                meshObject.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material.wireframe = e.target.checked;
+                    }
+                });
+            }
+        }
+        
+        function toggleVLMOnly(e) {
+            showVLMOnly = e.target.checked;
+            
+            // Show/hide hazard points based on VLM filter
+            hazardSpheres.forEach(obj => {
+                if (showVLMOnly) {
+                    // Show only VLM-paired hazards and their outlines
+                    if (obj.userData.isVLMOutline || obj.userData.hasVLM) {
+                        obj.visible = true;
+                    } else {
+                        obj.visible = false;
+                    }
+                } else {
+                    obj.visible = true;
+                }
+            });
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
+
