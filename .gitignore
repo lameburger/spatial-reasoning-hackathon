@@ -1,9 +1,6 @@
 .env
 
-# YOLO training outputs
-yolo_dataset/
-runs/
-evaluation_results/
+# YOLO model files (large, download separately)
 *.pt
 *.onnx
 *.torchscript
@@ -12,3 +9,28 @@ evaluation_results/
 *.engine
 *.xml
 *.bin
+
+# Detection results
+hazard_detection_results/
+detection_results/
+runs/
+evaluation_results/
+
+# Dataset directories
+yolo_dataset/
+vlm_data/
+
+# Visualizations
+visualizations/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
