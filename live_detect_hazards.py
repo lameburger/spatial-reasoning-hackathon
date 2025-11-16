@@ -161,6 +161,7 @@ def live_detection(
     model_path: str = None,
     source: int = 0,  # 0 for webcam
     conf_threshold: float = 0.25,
+    skip_frames: int = 1,  # Process every nth frame (1 = every frame, 2 = every other frame)
 ):
     """Live hazard detection from webcam or video stream."""
     
@@ -184,6 +185,7 @@ def live_detection(
     print("=" * 60)
     print(f"Model: {model_path}")
     print(f"Source: {'Webcam' if source == 0 else source}")
+    print(f"Processing: Every {skip_frames} frame(s)")
     print("Press 'q' to quit")
     print()
     
@@ -197,40 +199,55 @@ def live_detection(
         raise ValueError(f"Cannot open video source: {source}")
     
     frame_count = 0
-    
+    last_detections = []
+    last_hazards = []
+    last_annotated_base = None
+
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-        
-        # Run inference
-        results = model(frame, conf=conf_threshold, verbose=False)
-        result = results[0]
-        
-        # Extract and map detections
-        detections = []
-        if result.boxes is not None:
-            boxes = result.boxes
-            for i in range(len(boxes)):
-                bbox = boxes.xyxy[i].cpu().numpy()
-                conf = float(boxes.conf[i].cpu().numpy())
-                class_id = int(boxes.cls[i].cpu().numpy())
-                detected_class = model_names[class_id]
-                
-                hazard_class = map_class_name(detected_class, model_names)
-                if hazard_class:
-                    detections.append({
-                        "class_name": hazard_class,
-                        "original_class": detected_class,
-                        "bbox": bbox.tolist(),
-                        "confidence": conf
-                    })
-        
-        # Detect hazards
-        hazards = detect_hazards(detections)
-        
-        # Draw annotations
-        annotated_frame = result.plot()
+
+        # Only run inference every nth frame
+        if frame_count % skip_frames == 0:
+            # Run inference
+            results = model(frame, conf=conf_threshold, verbose=False)
+            result = results[0]
+
+            # Extract and map detections
+            detections = []
+            if result.boxes is not None:
+                boxes = result.boxes
+                for i in range(len(boxes)):
+                    bbox = boxes.xyxy[i].cpu().numpy()
+                    conf = float(boxes.conf[i].cpu().numpy())
+                    class_id = int(boxes.cls[i].cpu().numpy())
+                    detected_class = model_names[class_id]
+
+                    hazard_class = map_class_name(detected_class, model_names)
+                    if hazard_class:
+                        detections.append({
+                            "class_name": hazard_class,
+                            "original_class": detected_class,
+                            "bbox": bbox.tolist(),
+                            "confidence": conf
+                        })
+
+            # Detect hazards
+            hazards = detect_hazards(detections)
+
+            # Draw YOLO annotations with proper colors
+            annotated_frame = result.plot()
+            last_annotated_base = annotated_frame.copy()
+
+            # Cache results
+            last_detections = detections
+            last_hazards = hazards
+        else:
+            # Use last annotated frame as base
+            annotated_frame = last_annotated_base.copy() if last_annotated_base is not None else frame.copy()
+            detections = last_detections
+            hazards = last_hazards
         
         # Add hazard overlay
         if hazards:
@@ -267,13 +284,16 @@ def main():
                        help="Video source (0 for webcam, or path to video file)")
     parser.add_argument("--conf", type=float, default=0.25,
                        help="Confidence threshold")
-    
+    parser.add_argument("--skip-frames", type=int, default=2,
+                       help="Process every nth frame (1=all frames, 2=every other frame)")
+
     args = parser.parse_args()
-    
+
     live_detection(
         model_path=args.model,
         source=args.source,
-        conf_threshold=args.conf
+        conf_threshold=args.conf,
+        skip_frames=args.skip_frames
     )
 
 
