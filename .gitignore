@@ -1,4 +1,29 @@
+# Python environment
 .env
+venv/
+env/
+ENV/
+.venv/
+**/venv/
+**/env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # YOLO model files (large, download separately)
 *.pt
@@ -9,6 +34,18 @@
 *.engine
 *.xml
 *.bin
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_frame.jpg
+*.mp4
 
 # Detection results
 hazard_detection_results/
@@ -22,15 +59,3 @@ vlm_data/
 
 # Visualizations
 visualizations/
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-
-# IDE
-.DS_Store
-.vscode/
-.idea/

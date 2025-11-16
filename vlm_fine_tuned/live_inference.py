@@ -1,5 +1,5 @@
 import torch
-from transformers import AutoProcessor, Idefics3ForConditionalGeneration
+from transformers import Idefics3Processor, Idefics3ForConditionalGeneration
 from peft import PeftModel
 from PIL import Image
 import cv2
@@ -9,12 +9,12 @@ MODEL_ID = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
 ADAPTER_PATH = "./smolvlm_construction_finetuned"
 
 print("Loading model and processor...")
-processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True)
+processor = Idefics3Processor.from_pretrained(MODEL_ID)
 
 model = Idefics3ForConditionalGeneration.from_pretrained(
     MODEL_ID,
-    torch_dtype=torch.float32,
-    device_map="mps" if torch.backends.mps.is_available() else "auto",
+    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    device_map="auto",
 )
 
 print("Loading fine-tuned adapter...")
@@ -36,8 +36,8 @@ def analyze_frame(frame):
         }
     ]
     
-    text = processor.apply_chat_template(messages, add_generation_prompt=True)
-    inputs = processor(images=[[image]], text=text, return_tensors="pt")
+    prompt = processor.apply_chat_template(messages, add_generation_prompt=True)
+    inputs = processor(images=[image], text=prompt, return_tensors="pt")
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     with torch.no_grad():

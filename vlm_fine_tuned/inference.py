@@ -1,19 +1,19 @@
 import torch
-from transformers import AutoProcessor, Idefics3ForConditionalGeneration
+from transformers import Idefics3Processor, Idefics3ForConditionalGeneration
 from peft import PeftModel
 from PIL import Image
 import sys
 
 MODEL_ID = "HuggingFaceTB/SmolVLM2-2.2B-Instruct"
 ADAPTER_PATH = "./smolvlm_construction_finetuned"
-DEVICE = "mps" if torch.backends.mps.is_available() else "cpu"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 print(f"Loading model and processor... (using device: {DEVICE})")
-processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True)
+processor = Idefics3Processor.from_pretrained(MODEL_ID)
 model = Idefics3ForConditionalGeneration.from_pretrained(
     MODEL_ID,
-    torch_dtype=torch.float32,  # MPS works better with float32
-    device_map=DEVICE if DEVICE == "mps" else "auto",
+    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+    device_map="auto",
 )
 
 print("Loading fine-tuned adapter...")
@@ -35,7 +35,7 @@ def analyze_image(image_path, prompt="Describe this construction site image and 
     ]
     
     text = processor.apply_chat_template(messages, add_generation_prompt=True)
-    inputs = processor(images=image, text=text, return_tensors="pt")
+    inputs = processor(images=[image], text=text, return_tensors="pt")
     inputs = {k: v.to(model.device) for k, v in inputs.items()}
     
     with torch.no_grad():
